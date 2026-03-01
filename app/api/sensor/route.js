@@ -1,3 +1,5 @@
+let feedCommand = false;
+
 let latestData = {
   temperature: 0,
   ph: 0,
@@ -5,15 +7,34 @@ let latestData = {
   oxygen: 0
 };
 
+// ESP32 sends sensor values here
 export async function POST(req) {
   const body = await req.json();
-  latestData = body;
 
-  console.log("Stored sensor data:", latestData);
+  // If request comes from ESP32 → store sensor values
+  if (body.ph !== undefined) {
+    latestData = body;
+    console.log("Stored sensor data:", latestData);
+  }
 
-  return Response.json({ status: "stored" });
+  // If request comes from website button → trigger feed
+  if (body.feed === true) {
+    console.log("Feed command received from website");
+    feedCommand = true;
+  }
+
+  return Response.json({ status: "ok" });
 }
 
+// Website & ESP32 read data here
 export async function GET() {
-  return Response.json(latestData);
+  const response = {
+    ...latestData,
+    feed: feedCommand
+  };
+
+  // Reset command after ESP32 reads it once
+  feedCommand = false;
+
+  return Response.json(response);
 }

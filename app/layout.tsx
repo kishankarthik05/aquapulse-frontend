@@ -14,9 +14,24 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const [isFeeding, setIsFeeding] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  const handleFeed = () => {
-    setIsFeeding(true);
-    setTimeout(() => setIsFeeding(false), 3000);
+  // ⭐ UPDATED: now sends command to backend
+  const handleFeed = async () => {
+    try {
+      setIsFeeding(true);
+
+      await fetch('/api/sensor', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ feed: true })
+      });
+
+      // keep animation visible briefly
+      setTimeout(() => setIsFeeding(false), 3000);
+
+    } catch (err) {
+      console.error("Feed command failed:", err);
+      setIsFeeding(false);
+    }
   };
 
   const navLinks = [
@@ -44,7 +59,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </span>
           </Link>
 
-          {/* DESKTOP NAV (Hidden on mobile) */}
+          {/* DESKTOP NAV */}
           <div className="hidden md:flex gap-10 text-sm font-medium">
             {navLinks.map((link) => (
               <Link
@@ -69,13 +84,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               {isFeeding ? "Feeding..." : "Feed Your Fish"}
             </button>
 
-            {/* MOBILE MENU TOGGLE ICON */}
+            {/* MOBILE MENU ICON */}
             <button className="md:hidden text-slate-400 p-2" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
               {isMobileMenuOpen ? <X size={28} /> : <Menu size={28} />}
             </button>
           </div>
 
-          {/* MOBILE MENU DROPDOWN */}
+          {/* MOBILE MENU */}
           {isMobileMenuOpen && (
             <div className="absolute top-full left-0 w-full bg-[#050b14] border-b border-slate-800 p-6 flex flex-col gap-6 md:hidden animate-in fade-in slide-in-from-top-4">
               {navLinks.map((link) => (
