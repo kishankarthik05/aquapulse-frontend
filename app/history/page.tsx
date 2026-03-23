@@ -3,23 +3,21 @@ import React, { useEffect, useState } from 'react';
 import { Wind, Download } from 'lucide-react';
 
 const OPTIMAL_RANGES = {
-  ammonia: { min: 0, max: 20, target: 10, label: "Target < 15%" },
   ph: { min: 60, max: 85, target: 72, label: "Ideal 7.0-8.2" },
-  temp: { min: 70, max: 80, target: 78, label: "Ideal 75-78°F" },
-  oxygen: { min: 80, max: 100, target: 94, label: "Target > 90%" },
+  temp: { min: 20, max: 30, target: 26, label: "Ideal 24-28°C" },
+  tds: { min: 0, max: 500, target: 300, label: "Good < 500 ppm" },
+  turbidity: { min: 0, max: 1000, target: 200, label: "Clear Water Low NTU" },
 };
 
 export default function HistoryPage() {
 
-  // ⭐ store live history arrays
   const [history, setHistory] = useState({
-    ammonia: [] as number[],
     ph: [] as number[],
     temp: [] as number[],
-    oxygen: [] as number[],
+    tds: [] as number[],
+    turbidity: [] as number[],
   });
 
-  // ⭐ fetch live backend data
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -27,10 +25,10 @@ export default function HistoryPage() {
         const data = await res.json();
 
         setHistory(prev => ({
-          ammonia: [...prev.ammonia, data.ammonia || 0].slice(-40),
           ph: [...prev.ph, data.ph || 0].slice(-40),
           temp: [...prev.temp, data.temperature || 0].slice(-40),
-          oxygen: [...prev.oxygen, data.oxygen || 0].slice(-40),
+          tds: [...prev.tds, data.tds || 0].slice(-40),
+          turbidity: [...prev.turbidity, data.turbidity || 0].slice(-40),
         }));
 
       } catch (err) {
@@ -47,7 +45,9 @@ export default function HistoryPage() {
 
       <header className="mb-10 flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
         <div>
-          <h2 className="text-4xl font-extrabold tracking-tight mb-2 text-white">Sensor History & Analytics</h2>
+          <h2 className="text-4xl font-extrabold tracking-tight mb-2 text-white">
+            Sensor History & Analytics
+          </h2>
           <p className="text-slate-400">Deep dive into aquarium health trends.</p>
         </div>
 
@@ -58,24 +58,34 @@ export default function HistoryPage() {
 
       {/* LIVE CHARTS */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
-        <ChartCard title="Ammonia Levels" color="#22d3ee" range={OPTIMAL_RANGES.ammonia} data={history.ammonia} />
         <ChartCard title="pH Balance" color="#22d3ee" range={OPTIMAL_RANGES.ph} data={history.ph} />
-        <ChartCard title="Temperature (°F)" color="#f59e0b" range={OPTIMAL_RANGES.temp} data={history.temp} />
-        <ChartCard title="Dissolved Oxygen" color="#10b981" range={OPTIMAL_RANGES.oxygen} data={history.oxygen} />
+        <ChartCard title="Temperature (°C)" color="#f59e0b" range={OPTIMAL_RANGES.temp} data={history.temp} />
+        <ChartCard title="TDS (ppm)" color="#6366f1" range={OPTIMAL_RANGES.tds} data={history.tds} />
+        <ChartCard title="Turbidity" color="#10b981" range={OPTIMAL_RANGES.turbidity} data={history.turbidity} />
       </div>
 
     </div>
   );
 }
 
-function ChartCard({ title, color, range, data }: { title: string, color: string, range: any, data: number[] }) {
+function ChartCard({
+  title,
+  color,
+  range,
+  data
+}: {
+  title: string,
+  color: string,
+  range: any,
+  data: number[]
+}) {
 
-  const getY = (val: number) => 200 - (val * 2);
+  const getY = (val: number) => 200 - (val * 0.2); // scaled for wider ranges
 
-  // ⭐ build SVG path from history values
   const buildPath = () => {
     if (data.length < 2) return "";
     const stepX = 800 / (data.length - 1);
+
     return data.map((v, i) => {
       const x = i * stepX;
       const y = getY(v);
@@ -89,7 +99,9 @@ function ChartCard({ title, color, range, data }: { title: string, color: string
       <div className="flex justify-between items-center mb-6">
         <div>
           <h3 className="font-bold text-slate-200">{title}</h3>
-          <span className="text-[10px] text-emerald-500/80 uppercase tracking-tighter">{range.label}</span>
+          <span className="text-[10px] text-emerald-500/80 uppercase tracking-tighter">
+            {range.label}
+          </span>
         </div>
         <Wind size={18} className="text-slate-600 group-hover:text-cyan-400 transition-colors" />
       </div>
@@ -120,7 +132,7 @@ function ChartCard({ title, color, range, data }: { title: string, color: string
             opacity="0.3"
           />
 
-          {/* ⭐ LIVE GRAPH LINE */}
+          {/* live graph */}
           <path
             d={buildPath()}
             fill="none"

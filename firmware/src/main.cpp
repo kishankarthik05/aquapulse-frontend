@@ -8,11 +8,13 @@
 // WiFi Credentials
 const char* ssid = "LEGION";
 const char* password = "123456789";
-const char* serverUrl = "http://10.17.30.180:3000/api/sensor";
+const char* serverUrl = "http://172.25.6.85:3000/api/sensor";
 
 // Pins
 #define PH_PIN 34
-#define SERVO_PIN 18
+#define TDS_PIN 35
+#define TURB_PIN 32
+#define SERVO_PIN 5
 #define ONE_WIRE_BUS 15
 
 OneWire oneWire(ONE_WIRE_BUS);
@@ -20,6 +22,7 @@ DallasTemperature sensors(&oneWire);
 
 bool feedProcessed = false; 
 
+// -------------------- pH --------------------
 float readPH() {
     long sum = 0;
     for(int i = 0; i < 20; i++){
@@ -31,6 +34,41 @@ float readPH() {
     return 7 + (1.5 - voltage) * 10;
 }
 
+// -------------------- TDS --------------------
+float readTDS() {
+    long sum = 0;
+    for(int i = 0; i < 20; i++){
+        sum += analogRead(TDS_PIN);
+        delay(10);
+    }
+    float avg = sum / 20.0;
+    float voltage = avg * (3.3 / 4095.0);
+
+    // Simple approximate formula (can calibrate later)
+    float tdsValue = (133.42 * voltage * voltage * voltage 
+                    - 255.86 * voltage * voltage 
+                    + 857.39 * voltage) * 0.5;
+
+    return tdsValue; // ppm
+}
+
+// -------------------- Turbidity --------------------
+float readTurbidity() {
+    long sum = 0;
+    for(int i = 0; i < 20; i++){
+        sum += analogRead(TURB_PIN);
+        delay(10);
+    }
+    float avg = sum / 20.0;
+    float voltage = avg * (3.3 / 4095.0);
+
+    // Rough conversion (clean water ≈ high voltage)
+    float turbidity = 3000 - (voltage * 1000);
+
+    return turbidity;
+}
+
+// -------------------- Servo --------------------
 void moveServoManual(int pulseUs) {
     for(int i = 0; i < 50; i++) { 
         digitalWrite(SERVO_PIN, HIGH);
@@ -43,24 +81,19 @@ void moveServoManual(int pulseUs) {
 void setup() {
     Serial.begin(115200);
     analogReadResolution(12);
+
     pinMode(SERVO_PIN, OUTPUT);
 
-    // --- STEP 1: INTERNAL PULLUP ATTEMPT ---
-    // This tries to use the ESP32's built-in resistor.
+    // Temperature sensor setup
     pinMode(ONE_WIRE_BUS, INPUT_PULLUP); 
     delay(100); 
-    
     sensors.begin();
-    
-    // --- STEP 2: SENSOR SCANNER ---
+
     Serial.println("Scanning for Temperature Sensors...");
-    DeviceAddress tempDeviceAddress;
     if (sensors.getDeviceCount() == 0) {
-        Serial.println("CRITICAL: No DS18B20 found! Check Wiring/Resistor.");
+        Serial.println("CRITICAL: No DS18B20 found!");
     } else {
-        Serial.print("Success! Found ");
-        Serial.print(sensors.getDeviceCount(), DEC);
-        Serial.println(" sensor(s).");
+        Serial.println("Temperature sensor detected!");
     }
 
     moveServoManual(500);
@@ -76,28 +109,30 @@ void setup() {
 void loop() {
     if (WiFi.status() == WL_CONNECTED) {
         HTTPClient http;
-        
-        // --- 1️⃣ GET: Feed Command ---
+
+        // -------------------- GET Feed --------------------
         http.begin(serverUrl);
         if (http.GET() == 200) {
             StaticJsonDocument<256> doc;
             deserializeJson(doc, http.getString());
+
             bool serverSaysFeed = doc["feed"];
+
             if (serverSaysFeed && !feedProcessed) {
                 moveServoManual(2400); 
                 delay(1500); 
                 moveServoManual(500);  
                 feedProcessed = true; 
             } 
+
             if (!serverSaysFeed) feedProcessed = false;
         }
         http.end();
 
-        // --- 2️⃣ READ SENSORS ---
+        // -------------------- READ SENSORS --------------------
         sensors.requestTemperatures(); 
         float currentTemp = sensors.getTempCByIndex(0);
-        
-        // If still -127, try to re-init
+
         if (currentTemp == -127.00) {
             sensors.begin();
             sensors.requestTemperatures();
@@ -105,25 +140,34 @@ void loop() {
         }
 
         float currentPH = readPH();
-        Serial.printf("Telemetry -> pH: %.2f | Temp: %.2f C\n", currentPH, currentTemp);
+        float currentTDS = readTDS();
+        float currentTurb = readTurbidity();
 
-        // --- 3️⃣ POST: Send Data ---
+        Serial.printf("Telemetry -> pH: %.2f | Temp: %.2f C | TDS: %.2f ppm | Turbidity: %.2f\n",
+                      currentPH, currentTemp, currentTDS, currentTurb);
+
+        // -------------------- POST DATA --------------------
         http.begin(serverUrl);
         http.addHeader("Content-Type", "application/json");
+
         StaticJsonDocument<256> docSend;
+
         docSend["ph"] = currentPH;
-        
-        // Only send valid temp data
+        docSend["tds"] = currentTDS;
+        docSend["turbidity"] = currentTurb;
+
         if (currentTemp > -50 && currentTemp < 100) {
             docSend["temperature"] = currentTemp;
         } else {
-            docSend["temperature"] = 0; // Default to 0 if sensor is failing
+            docSend["temperature"] = 0;
         }
-        
+
         String requestBody;
         serializeJson(docSend, requestBody);
         http.POST(requestBody);
+
         http.end();
     }
-    delay(2000); 
+
+    delay(2000);
 }
