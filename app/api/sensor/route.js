@@ -4,7 +4,12 @@ let sensorState = {
   temperature: 0,
   tds: 0,
   turbidity: 0,
-  lastFeedTriggerTime: 0 // 10-second feed window
+
+  lastFeedTriggerTime: 0, // manual feed window
+
+  // 🐟 NEW FEATURES
+  fishCount: 1,
+  feedTime: "" // format "HH:MM"
 };
 
 // 1. RECEIVE DATA (From ESP32 or Website Button)
@@ -12,7 +17,7 @@ export async function POST(req) {
   try {
     const body = await req.json();
 
-    // CASE A: Update sensor values from ESP32
+    // ---------------- SENSOR DATA ----------------
     if (
       body.ph !== undefined ||
       body.temperature !== undefined ||
@@ -29,13 +34,25 @@ export async function POST(req) {
       );
     }
 
-    // CASE B: Trigger from Website Button
+    // ---------------- MANUAL FEED ----------------
     if (body.feed === true) {
       sensorState.lastFeedTriggerTime = Date.now();
-      console.log("!!! [DATABASE] Feed Command Activated for 10 seconds !!!");
+      console.log("!!! [DATABASE] Manual Feed Triggered !!!");
+    }
+
+    // ---------------- SAVE SETTINGS ----------------
+    if (body.fishCount !== undefined) {
+      sensorState.fishCount = body.fishCount;
+      console.log("Fish Count Set:", sensorState.fishCount);
+    }
+
+    if (body.feedTime !== undefined) {
+      sensorState.feedTime = body.feedTime;
+      console.log("Feed Time Set:", sensorState.feedTime);
     }
 
     return Response.json({ status: "success" });
+
   } catch (error) {
     console.error("POST Error:", error);
     return Response.json({ status: "error" }, { status: 400 });
@@ -46,15 +63,33 @@ export async function POST(req) {
 export async function GET() {
   const now = Date.now();
 
-  // Check if feed is active (10 sec window)
-  const isCurrentlyFeeding = (now - sensorState.lastFeedTriggerTime) < 10000;
+  // ---------------- MANUAL FEED WINDOW ----------------
+  const manualFeedActive = (now - sensorState.lastFeedTriggerTime) < 10000;
+
+  // ---------------- AUTO FEED LOGIC ----------------
+  const currentTime = new Date().toTimeString().slice(0, 5);
+
+  let autoFeedActive = false;
+
+  if (sensorState.feedTime === currentTime) {
+    autoFeedActive = true;
+    sensorState.lastFeedTriggerTime = Date.now(); // trigger feed
+    console.log("⏰ AUTO FEED TRIGGERED");
+  }
+
+  // ---------------- FINAL FEED STATE ----------------
+  const isCurrentlyFeeding = manualFeedActive || autoFeedActive;
 
   const responseData = {
     ph: sensorState.ph,
     temperature: sensorState.temperature,
     tds: sensorState.tds,
     turbidity: sensorState.turbidity,
-    feed: isCurrentlyFeeding
+
+    feed: isCurrentlyFeeding,
+
+    // 🐟 SEND TO ESP32
+    fishCount: sensorState.fishCount
   };
 
   if (isCurrentlyFeeding) {

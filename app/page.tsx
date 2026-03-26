@@ -20,7 +20,7 @@ export default function Home() {
     turbidity: 0
   });
 
-  const [phHistory, setPhHistory] = useState<number[]>([]);
+  const [phHistory, setPhHistory] = useState<number[]>([]); // (kept but unused)
 
   useEffect(() => {
     const fetchData = async () => {
@@ -35,6 +35,7 @@ export default function Home() {
           turbidity: data.turbidity || 0
         });
 
+        // kept but not used anymore
         setPhHistory(prev => {
           const updated = [...prev, data.ph || 0];
           return updated.slice(-40);
@@ -48,20 +49,6 @@ export default function Home() {
     const interval = setInterval(fetchData, 1500);
     return () => clearInterval(interval);
   }, []);
-
-  // pH graph scaling
-  const getY = (val: number) => 200 - (val * 20);
-
-  const buildPath = () => {
-    if (phHistory.length < 2) return "";
-    const stepX = 800 / (phHistory.length - 1);
-
-    return phHistory.map((v, i) => {
-      const x = i * stepX;
-      const y = getY(v);
-      return `${i === 0 ? "M" : "L"} ${x} ${y}`;
-    }).join(" ");
-  };
 
   return (
     <div className="max-w-7xl mx-auto px-6 md:px-10 py-10">
@@ -118,43 +105,70 @@ export default function Home() {
 
       </div>
 
-      {/* PH GRAPH */}
+      {/* 🔥 HEALTH STATUS BOX (REPLACED GRAPH) */}
       <div className="mt-12 bg-slate-900/40 border border-slate-800 p-6 md:p-8 rounded-3xl shadow-2xl">
+        
         <div className="flex justify-between items-center mb-6">
           <h3 className="text-xl font-bold flex items-center gap-2 text-white">
-            <Wind size={20} className="text-cyan-400" /> Live pH Trend
+            <Wind size={20} className="text-cyan-400" /> Fish Health Status
           </h3>
-          <span className="text-sm text-cyan-400 font-semibold">
-            Current pH: {sensorData.ph.toFixed(2)}
-          </span>
         </div>
 
-        <div className="h-72 bg-slate-950/50 rounded-2xl border border-slate-800/50 p-6">
-          <svg viewBox="0 0 800 200" className="w-full h-full">
+        {(() => {
+          let issues = 0;
+          let problems: string[] = [];
 
-            {[2,4,6,8,10].map(val => (
-              <line key={val} x1="0" y1={getY(val)} x2="800" y2={getY(val)} stroke="#1e293b" strokeDasharray="4,4" />
-            ))}
+          if (sensorData.ph < 6.5 || sensorData.ph > 8.2) {
+            issues++;
+            problems.push("pH");
+          }
 
-            {/* optimal zone */}
-            <rect
-              x="0"
-              y={getY(8.2)}
-              width="800"
-              height={Math.abs(getY(8.2)-getY(7))}
-              fill="#22d3ee"
-              fillOpacity="0.08"
-            />
+          if (sensorData.temperature < 24 || sensorData.temperature > 28) {
+            issues++;
+            problems.push("Temperature");
+          }
 
-            {/* graph */}
-            <path
-              d={buildPath()}
-              fill="none"
-              stroke="#22d3ee"
-              strokeWidth="3"
-            />
-          </svg>
-        </div>
+          if (sensorData.tds > 500) {
+            issues++;
+            problems.push("TDS");
+          }
+
+          if (sensorData.turbidity > 1000) {
+            issues++;
+            problems.push("Turbidity");
+          }
+
+          let status = "";
+          let color = "";
+
+          if (issues === 0) {
+            status = "Healthy Aquarium ✅";
+            color = "text-emerald-400";
+          } 
+          else if (issues === 1) {
+            status = `Slightly Unstable ⚠️ (${problems.join(", ")})`;
+            color = "text-yellow-400";
+          } 
+          else {
+            status = `Danger Condition ❌ (${problems.join(", ")})`;
+            color = "text-red-500";
+          }
+
+          return (
+            <div className="h-72 flex flex-col justify-center items-center bg-slate-950/50 rounded-2xl border border-slate-800/50">
+
+              <div className={`text-3xl font-bold ${color} animate-pulse`}>
+                {status}
+              </div>
+
+              <p className="text-slate-400 mt-4 text-center px-6">
+                Based on pH, Temperature, TDS and Turbidity levels
+              </p>
+
+            </div>
+          );
+        })()}
+
       </div>
 
     </div>

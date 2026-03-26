@@ -8,7 +8,7 @@
 // WiFi Credentials
 const char* ssid = "LEGION";
 const char* password = "123456789";
-const char* serverUrl = "http://172.25.6.85:3000/api/sensor";
+const char* serverUrl = "http://10.209.177.180:3000/api/sensor";
 
 // Pins
 #define PH_PIN 34
@@ -44,12 +44,11 @@ float readTDS() {
     float avg = sum / 20.0;
     float voltage = avg * (3.3 / 4095.0);
 
-    // Simple approximate formula (can calibrate later)
     float tdsValue = (133.42 * voltage * voltage * voltage 
                     - 255.86 * voltage * voltage 
                     + 857.39 * voltage) * 0.5;
 
-    return tdsValue; // ppm
+    return tdsValue;
 }
 
 // -------------------- Turbidity --------------------
@@ -62,17 +61,19 @@ float readTurbidity() {
     float avg = sum / 20.0;
     float voltage = avg * (3.3 / 4095.0);
 
-    // Rough conversion (clean water ≈ high voltage)
     float turbidity = 3000 - (voltage * 1000);
 
     return turbidity;
 }
 
 // -------------------- Servo --------------------
-void moveServoManual(int pulseUs) {
-    for(int i = 0; i < 50; i++) { 
+
+// Smooth continuous motion
+void servoMoveContinuous(int pulseUs, int durationMs) {
+    int cycles = durationMs / 20;
+    for(int i = 0; i < cycles; i++) {
         digitalWrite(SERVO_PIN, HIGH);
-        delayMicroseconds(pulseUs); 
+        delayMicroseconds(pulseUs);
         digitalWrite(SERVO_PIN, LOW);
         delay(20);
     }
@@ -84,7 +85,6 @@ void setup() {
 
     pinMode(SERVO_PIN, OUTPUT);
 
-    // Temperature sensor setup
     pinMode(ONE_WIRE_BUS, INPUT_PULLUP); 
     delay(100); 
     sensors.begin();
@@ -96,7 +96,8 @@ void setup() {
         Serial.println("Temperature sensor detected!");
     }
 
-    moveServoManual(500);
+    // Initial position
+    servoMoveContinuous(500, 500);
 
     WiFi.begin(ssid, password);
     while (WiFi.status() != WL_CONNECTED) {
@@ -110,22 +111,41 @@ void loop() {
     if (WiFi.status() == WL_CONNECTED) {
         HTTPClient http;
 
-        // -------------------- GET Feed --------------------
+        // -------------------- GET DATA --------------------
         http.begin(serverUrl);
         if (http.GET() == 200) {
             StaticJsonDocument<256> doc;
             deserializeJson(doc, http.getString());
 
             bool serverSaysFeed = doc["feed"];
+            int fishCount = doc["fishCount"] | 1;
 
             if (serverSaysFeed && !feedProcessed) {
-                moveServoManual(2400); 
-                delay(1500); 
-                moveServoManual(500);  
-                feedProcessed = true; 
-            } 
 
-            if (!serverSaysFeed) feedProcessed = false;
+                Serial.println("Feeding Triggered!");
+
+                for (int i = 0; i < fishCount; i++) {
+
+                    Serial.printf("Feeding portion %d\n", i + 1);
+
+                    // 🔥 OPEN (to 180°)
+                    servoMoveContinuous(2400, 600);
+
+                    // 🔥 HOLD at 180° for 1 second
+                    servoMoveContinuous(2400, 1000);
+
+                    // 🔥 CLOSE
+                    servoMoveContinuous(500, 600);
+
+                    delay(300);
+                }
+
+                feedProcessed = true; 
+            }
+
+            if (!serverSaysFeed) {
+                feedProcessed = false;
+            }
         }
         http.end();
 
