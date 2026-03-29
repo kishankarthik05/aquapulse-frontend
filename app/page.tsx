@@ -20,7 +20,7 @@ export default function Home() {
     turbidity: 0
   });
 
-  const [phHistory, setPhHistory] = useState<number[]>([]); // (kept but unused)
+  const [phHistory, setPhHistory] = useState<number[]>([]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -35,7 +35,6 @@ export default function Home() {
           turbidity: data.turbidity || 0
         });
 
-        // kept but not used anymore
         setPhHistory(prev => {
           const updated = [...prev, data.ph || 0];
           return updated.slice(-40);
@@ -105,7 +104,7 @@ export default function Home() {
 
       </div>
 
-      {/* 🔥 HEALTH STATUS BOX (REPLACED GRAPH) */}
+      {/* 🔥 HEALTH STATUS BOX */}
       <div className="mt-12 bg-slate-900/40 border border-slate-800 p-6 md:p-8 rounded-3xl shadow-2xl">
         
         <div className="flex justify-between items-center mb-6">
@@ -117,23 +116,36 @@ export default function Home() {
         {(() => {
           let issues = 0;
           let problems: string[] = [];
+          let score = 0;
 
-          if (sensorData.ph < 6.5 || sensorData.ph > 8.2) {
+          // pH
+          if (sensorData.ph >= 6.5 && sensorData.ph <= 8.2) {
+            score += 25;
+          } else {
             issues++;
             problems.push("pH");
           }
 
-          if (sensorData.temperature < 24 || sensorData.temperature > 28) {
+          // Temperature
+          if (sensorData.temperature >= 24 && sensorData.temperature <= 28) {
+            score += 25;
+          } else {
             issues++;
             problems.push("Temperature");
           }
 
-          if (sensorData.tds > 500) {
+          // TDS
+          if (sensorData.tds <= 500) {
+            score += 25;
+          } else {
             issues++;
             problems.push("TDS");
           }
 
-          if (sensorData.turbidity > 1000) {
+          // Turbidity
+          if (sensorData.turbidity <= 1000) {
+            score += 25;
+          } else {
             issues++;
             problems.push("Turbidity");
           }
@@ -159,6 +171,11 @@ export default function Home() {
 
               <div className={`text-3xl font-bold ${color} animate-pulse`}>
                 {status}
+              </div>
+
+              {/* 🔥 HEALTH SCORE */}
+              <div className="mt-4 text-2xl font-bold text-white">
+                Health Score: {score}%
               </div>
 
               <p className="text-slate-400 mt-4 text-center px-6">

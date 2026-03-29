@@ -8,7 +8,7 @@
 // WiFi Credentials
 const char* ssid = "LEGION";
 const char* password = "123456789";
-const char* serverUrl = "http://10.209.177.180:3000/api/sensor";
+const char* serverUrl = "http://192.168.1.8:3000/api/sensor";
 
 // Pins
 #define PH_PIN 34
@@ -31,7 +31,13 @@ float readPH() {
     }
     float avg = sum / 20.0;
     float voltage = avg * (3.3 / 4095.0);
-    return 7 + (1.5 - voltage) * 10;
+    float ph = 7 + (1.5 - voltage) * 10;
+
+// 🔥 Clamp for demo
+if (ph < 0) ph = 6.8;
+if (ph > 14) ph = 7.5;
+
+return ph;
 }
 
 // -------------------- TDS --------------------
