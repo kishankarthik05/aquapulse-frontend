@@ -1,8 +1,54 @@
 @import "tailwindcss";
 
+/* 🌊 Animated Aqua Background */
 body {
   margin: 0;
-  background: #071a21;
   color: white;
   font-family: system-ui, sans-serif;
+
+  background: linear-gradient(-45deg, #020617, #021b2e, #042f4b, #020617);
+  background-size: 400% 400%;
+  animation: gradientFlow 12s ease infinite;
+
+  overflow-x: hidden;
+  position: relative;
+}
+
+/* 🌊 Gradient Animation */
+@keyframes gradientFlow {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* 🫧 Floating Bubbles */
+.bubble {
+  position: absolute;
+  bottom: -100px;
+  width: 20px;
+  height: 20px;
+  background: rgba(0, 255, 255, 0.12);
+  border-radius: 50%;
+  animation: rise 10s infinite ease-in;
+}
+
+/* 🫧 Bubble Animation */
+@keyframes rise {
+  0% {
+    transform: translateY(0) scale(0.5);
+    opacity: 0;
+  }
+  50% {
+    opacity: 0.6;
+  }
+  100% {
+    transform: translateY(-120vh) scale(1);
+    opacity: 0;
+  }
 }

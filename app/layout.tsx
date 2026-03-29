@@ -173,7 +173,32 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </div>
           )}
         </nav>
-
+{/* 🫧 Floating Bubbles */}
+{[...Array(10)].map((_, i) => (
+  <div
+    key={i}
+    className="bubble"
+    style={{
+      left: `${Math.random() * 100}%`,
+      animationDuration: `${8 + Math.random() * 5}s`,
+      width: `${10 + Math.random() * 20}px`,
+      height: `${10 + Math.random() * 20}px`,
+    }}
+  />
+))}
+{/* 🫧 Floating Bubbles */}
+{[...Array(10)].map((_, i) => (
+  <div
+    key={i}
+    className="bubble"
+    style={{
+      left: `${Math.random() * 100}%`,
+      animationDuration: `${8 + Math.random() * 5}s`,
+      width: `${10 + Math.random() * 20}px`,
+      height: `${10 + Math.random() * 20}px`,
+    }}
+  />
+))}
         {children}
       </body>
     </html>

@@ -7,9 +7,14 @@ let sensorState = {
 
   lastFeedTriggerTime: 0, // manual feed window
 
-  // 🐟 NEW FEATURES
   fishCount: 1,
   feedTime: "" // format "HH:MM"
+};
+
+// ---------------- ALERT FUNCTION ----------------
+const isNotNeutral = (value, min, max) => {
+  if (value === 0) return false; // ignore startup values
+  return value < min || value > max;
 };
 
 // 1. RECEIVE DATA (From ESP32 or Website Button)
@@ -73,13 +78,36 @@ export async function GET() {
 
   if (sensorState.feedTime === currentTime) {
     autoFeedActive = true;
-    sensorState.lastFeedTriggerTime = Date.now(); // trigger feed
+    sensorState.lastFeedTriggerTime = Date.now();
     console.log("⏰ AUTO FEED TRIGGERED");
   }
 
-  // ---------------- FINAL FEED STATE ----------------
   const isCurrentlyFeeding = manualFeedActive || autoFeedActive;
 
+  // ---------------- ALERT CHECK (MOVED HERE ✅) ----------------
+  let alerts = [];
+
+  if (isNotNeutral(sensorState.ph, 6.5, 8.2)) {
+  alerts.push("pH NOT NEUTRAL");
+}
+
+if (isNotNeutral(sensorState.temperature, 24, 32)) {
+  alerts.push("Temperature NOT NEUTRAL");
+}
+
+if (isNotNeutral(sensorState.tds, 0, 500)) {
+  alerts.push("TDS NOT NEUTRAL");
+}
+
+if (isNotNeutral(sensorState.turbidity, 0, 1000)) {
+  alerts.push("Turbidity NOT NEUTRAL");
+}
+
+  if (alerts.length > 0) {
+    console.log("🚨 ALERT:", alerts.join(", "));
+  }
+
+  // ---------------- RESPONSE ----------------
   const responseData = {
     ph: sensorState.ph,
     temperature: sensorState.temperature,
@@ -88,13 +116,23 @@ export async function GET() {
 
     feed: isCurrentlyFeeding,
 
-    // 🐟 SEND TO ESP32
-    fishCount: sensorState.fishCount
+    fishCount: sensorState.fishCount,
+
+    alerts // ✅ NOW SENT TO FRONTEND
   };
 
   if (isCurrentlyFeeding) {
     console.log(">>> [SERVER] Sending Feed Command: TRUE");
   }
 
-  return Response.json(responseData);
+return Response.json({
+  ph: sensorState.ph,
+  temperature: sensorState.temperature,
+  tds: sensorState.tds,
+  turbidity: sensorState.turbidity,
+  fishCount: sensorState.fishCount,
+
+  // ✅ ADD THIS
+  alerts
+});
 }

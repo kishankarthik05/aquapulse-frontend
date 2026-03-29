@@ -13,6 +13,7 @@ interface MetricCardProps {
 }
 
 export default function Home() {
+
   const [sensorData, setSensorData] = useState({
     temperature: 0,
     ph: 0,
@@ -21,6 +22,10 @@ export default function Home() {
   });
 
   const [phHistory, setPhHistory] = useState<number[]>([]);
+
+  // ✅ NEW ALERT STATES
+  const [alerts, setAlerts] = useState<string[]>([]);
+  const [showPopup, setShowPopup] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -40,6 +45,14 @@ export default function Home() {
           return updated.slice(-40);
         });
 
+        // ✅ HANDLE ALERTS FROM BACKEND
+        if (data.alerts && data.alerts.length > 0) {
+          setAlerts(data.alerts);
+          setShowPopup(true);
+
+          setTimeout(() => setShowPopup(false), 4000);
+        }
+
       } catch (err) {
         console.error("Error fetching live data:", err);
       }
@@ -51,6 +64,14 @@ export default function Home() {
 
   return (
     <div className="max-w-7xl mx-auto px-6 md:px-10 py-10">
+
+      {/* ✅ ALERT POPUP */}
+      {showPopup && (
+        <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 
+bg-red-500/90 text-white px-6 py-4 rounded-xl shadow-xl z-50 animate-pulse">
+          🚨 {alerts.join(", ")}
+        </div>
+      )}
 
       <header className="mb-10 flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
         <div>
@@ -73,7 +94,7 @@ export default function Home() {
         <MetricCard
           title="pH Balance"
           value={sensorData.ph}
-          target="Ideal: 7.0 - 8.2"
+          target="Ideal: 6.5 - 8.2"
           maxValue={14}
           isInfo
         />
@@ -81,7 +102,7 @@ export default function Home() {
         <MetricCard
           title="Temperature (°C)"
           value={sensorData.temperature}
-          target="Target: 24 - 28°C"
+          target="Target: 24 - 32°C"
           maxValue={50}
           color="text-amber-500"
         />
@@ -104,7 +125,7 @@ export default function Home() {
 
       </div>
 
-      {/* 🔥 HEALTH STATUS BOX */}
+      {/* HEALTH STATUS */}
       <div className="mt-12 bg-slate-900/40 border border-slate-800 p-6 md:p-8 rounded-3xl shadow-2xl">
         
         <div className="flex justify-between items-center mb-6">
@@ -118,37 +139,17 @@ export default function Home() {
           let problems: string[] = [];
           let score = 0;
 
-          // pH
-          if (sensorData.ph >= 6.5 && sensorData.ph <= 8.2) {
-            score += 25;
-          } else {
-            issues++;
-            problems.push("pH");
-          }
+          if (sensorData.ph >= 6.5 && sensorData.ph <= 8.2) score += 25;
+          else { issues++; problems.push("pH"); }
 
-          // Temperature
-          if (sensorData.temperature >= 24 && sensorData.temperature <= 28) {
-            score += 25;
-          } else {
-            issues++;
-            problems.push("Temperature");
-          }
+          if (sensorData.temperature >= 24 && sensorData.temperature <= 32) score += 25;
+          else { issues++; problems.push("Temperature"); }
 
-          // TDS
-          if (sensorData.tds <= 500) {
-            score += 25;
-          } else {
-            issues++;
-            problems.push("TDS");
-          }
+          if (sensorData.tds <= 500) score += 25;
+          else { issues++; problems.push("TDS"); }
 
-          // Turbidity
-          if (sensorData.turbidity <= 1000) {
-            score += 25;
-          } else {
-            issues++;
-            problems.push("Turbidity");
-          }
+          if (sensorData.turbidity <= 1000) score += 25;
+          else { issues++; problems.push("Turbidity"); }
 
           let status = "";
           let color = "";
@@ -173,7 +174,6 @@ export default function Home() {
                 {status}
               </div>
 
-              {/* 🔥 HEALTH SCORE */}
               <div className="mt-4 text-2xl font-bold text-white">
                 Health Score: {score}%
               </div>
@@ -206,7 +206,7 @@ function MetricCard({
 
   const percentage = (value / maxValue) * 100;
   const circ = 2 * Math.PI * 34;
-
+  
   return (
     <div className="bg-slate-900/40 border border-slate-800 p-6 rounded-2xl flex flex-col items-center">
 
