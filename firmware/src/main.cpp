@@ -8,7 +8,7 @@
 // WiFi Credentials
 const char* ssid = "LEGION";
 const char* password = "123456789";
-const char* serverUrl = "http://192.168.1.8:3000/api/sensor";
+const char* serverUrl = "http://10.13.209.180:3000/api/sensor";
 
 // Pins
 #define PH_PIN 34
